@@ -1,0 +1,12 @@
+{
+  "name": "quizzly",
+  "version": "1.0.0",
+  "description": "Quizzly - Real-Time Kahoot Clone for Friends & Classroom Quizzes",
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "build": "npm run build --prefix client",
+    "start": "node server/src/server.js",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client"
+  }
+}
