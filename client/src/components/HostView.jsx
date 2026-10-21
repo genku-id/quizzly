@@ -55,6 +55,10 @@ export default function HostView({ onSwitchToCreate }) {
       soundManager.playMusic('lobby', '/audio/lobby.mp3', true);
     });
 
+    socket.on('host:error', (data) => {
+      alert(data.message || 'Terjadi kesalahan pada room host.');
+    });
+
     socket.on('game:player_joined', (data) => {
       setPlayers(data.playerList || []);
     });
@@ -156,6 +160,9 @@ export default function HostView({ onSwitchToCreate }) {
 
   const handleStartRoom = () => {
     if (!selectedQuiz) return;
+    if (!socket.connected) {
+      socket.connect();
+    }
     socket.emit('host:create_room', { quizId: selectedQuiz.id });
   };
 
