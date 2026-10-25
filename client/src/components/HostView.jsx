@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { socket } from '../services/socket';
 import { soundManager } from '../services/audio';
-import { ANSWER_SHAPES } from '../constants/theme';
+import { ANSWER_SHAPES, LOBBY_TRACKS } from '../constants/theme';
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import {
@@ -14,12 +14,19 @@ import {
   Check,
   X,
   Flame,
-  Maximize2
+  Maximize2,
+  Edit,
+  Trash2,
+  Copy,
+  Eye,
+  EyeOff,
+  Music
 } from 'lucide-react';
 
-export default function HostView({ onSwitchToCreate }) {
+export default function HostView({ onSwitchToCreate, onEditQuiz }) {
   const [quizzes, setQuizzes] = useState([]);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
+  const [previewQuizId, setPreviewQuizId] = useState(null);
   const [pin, setPin] = useState(null);
   const [step, setStep] = useState('SELECT_QUIZ'); // SELECT_QUIZ, LOBBY, GET_READY, QUESTION, RESULT, LEADERBOARD, PODIUM
 
@@ -32,18 +39,24 @@ export default function HostView({ onSwitchToCreate }) {
   const [leaderboardData, setLeaderboardData] = useState(null);
   const [podiumData, setPodiumData] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [selectedLobbyTrack, setSelectedLobbyTrack] = useState(LOBBY_TRACKS[0]);
 
   const questionTimerRef = useRef(null);
 
-  // Fetch quizzes on mount
-  useEffect(() => {
+  const fetchQuizzes = () => {
     fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes`)
       .then(res => res.json())
       .then(data => {
         setQuizzes(data);
-        if (data.length > 0) setSelectedQuiz(data[0]);
+        if (data.length > 0 && !selectedQuiz) {
+          setSelectedQuiz(data[0]);
+        }
       })
       .catch(err => console.error("Error fetching quizzes:", err));
+  };
+
+  useEffect(() => {
+    fetchQuizzes();
   }, []);
 
   // Socket listeners for host
@@ -52,7 +65,7 @@ export default function HostView({ onSwitchToCreate }) {
       setPin(data.pin);
       setStep('LOBBY');
       setPlayers([]);
-      soundManager.playMusic('lobby', '/audio/lobby.mp3', true);
+      soundManager.playMusic('lobby', selectedLobbyTrack.file, true);
     });
 
     socket.on('host:error', (data) => {
@@ -93,7 +106,6 @@ export default function HostView({ onSwitchToCreate }) {
 
       soundManager.playMusic('timer', musicFile, false);
 
-      // Local ticker for host animation
       if (questionTimerRef.current) clearInterval(questionTimerRef.current);
       let t = data.timeLimit;
       questionTimerRef.current = setInterval(() => {
@@ -129,7 +141,6 @@ export default function HostView({ onSwitchToCreate }) {
       setPodiumData(data);
       setStep('PODIUM');
 
-      // Trigger Confetti Celebration!
       try {
         confetti({
           particleCount: 150,
@@ -145,6 +156,7 @@ export default function HostView({ onSwitchToCreate }) {
 
     return () => {
       socket.off('host:room_created');
+      socket.off('host:error');
       socket.off('game:player_joined');
       socket.off('game:player_left');
       socket.off('game:get_ready');
@@ -156,7 +168,7 @@ export default function HostView({ onSwitchToCreate }) {
       socket.off('game:podium');
       if (questionTimerRef.current) clearInterval(questionTimerRef.current);
     };
-  }, []);
+  }, [selectedLobbyTrack]);
 
   const handleStartRoom = () => {
     if (!selectedQuiz) return;
@@ -197,6 +209,42 @@ export default function HostView({ onSwitchToCreate }) {
     }
   };
 
+  const handleChangeLobbyTrack = (trackId) => {
+    const track = LOBBY_TRACKS.find(t => t.id === trackId) || LOBBY_TRACKS[0];
+    setSelectedLobbyTrack(track);
+    if (step === 'LOBBY') {
+      soundManager.playMusic('lobby', track.file, true);
+    }
+  };
+
+  const handleDeleteQuiz = async (e, id) => {
+    e.stopPropagation();
+    if (!confirm('Yakin ingin menghapus kuis ini? Tindakan tidak bisa dibatalkan.')) return;
+    try {
+      await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes/${id}`, {
+        method: 'DELETE'
+      });
+      fetchQuizzes();
+      if (selectedQuiz?.id === id) setSelectedQuiz(null);
+    } catch (err) {
+      alert('Gagal menghapus kuis.');
+    }
+  };
+
+  const handleDuplicateQuiz = async (e, id) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes/${id}/duplicate`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        fetchQuizzes();
+      }
+    } catch (err) {
+      alert('Gagal menduplikat kuis.');
+    }
+  };
+
   const joinUrl = `${window.location.origin}?pin=${pin}`;
 
   return (
@@ -212,7 +260,24 @@ export default function HostView({ onSwitchToCreate }) {
           )}
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
+          {step === 'LOBBY' && (
+            <div className="flex items-center space-x-2 bg-white/15 px-3 py-1.5 rounded-xl border border-white/20 text-xs font-bold">
+              <Music className="w-4 h-4 text-amber-300" />
+              <select
+                value={selectedLobbyTrack.id}
+                onChange={(e) => handleChangeLobbyTrack(e.target.value)}
+                className="bg-transparent text-white font-bold outline-none cursor-pointer"
+              >
+                {LOBBY_TRACKS.map(t => (
+                  <option key={t.id} value={t.id} className="text-gray-900 font-bold">
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button
             onClick={toggleSound}
             className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
@@ -232,35 +297,120 @@ export default function HostView({ onSwitchToCreate }) {
 
       {/* 1. SELECT QUIZ */}
       {step === 'SELECT_QUIZ' && (
-        <div className="max-w-2xl mx-auto my-auto p-6 bg-white text-gray-900 rounded-3xl shadow-2xl w-full">
-          <h2 className="text-2xl font-black text-[#46178f] mb-1">Pilih Kuis untuk Dimainkan</h2>
-          <p className="text-sm text-gray-500 mb-6">Pilih bank soal yang ingin Anda pandu untuk teman-teman.</p>
+        <div className="max-w-3xl mx-auto my-auto p-6 bg-white text-gray-900 rounded-3xl shadow-2xl w-full">
+          <div className="flex justify-between items-center mb-1">
+            <h2 className="text-2xl font-black text-[#46178f]">Daftar Kuis Anda</h2>
+            <button
+              onClick={onSwitchToCreate}
+              className="text-xs font-bold text-[#46178f] hover:underline cursor-pointer"
+            >
+              + Buat Kuis Baru
+            </button>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">Pilih kuis yang ingin dipandu, atau tinjau, edit, dan duplikat bank soal.</p>
 
-          <div className="space-y-3 max-h-72 overflow-y-auto mb-6 pr-1">
-            {quizzes.map((q) => (
-              <div
-                key={q.id}
-                onClick={() => setSelectedQuiz(q)}
-                className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex justify-between items-center ${
-                  selectedQuiz?.id === q.id
-                    ? 'border-[#46178f] bg-purple-50 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div>
-                  <h3 className="font-extrabold text-lg text-gray-800">{q.title}</h3>
-                  <p className="text-xs text-gray-500">{q.description || 'Kuis interaktif'}</p>
-                  <span className="inline-block mt-2 text-xs font-bold text-[#46178f] bg-purple-100 px-2.5 py-0.5 rounded-full">
-                    {q.questions.length} Pertanyaan
-                  </span>
-                </div>
-                {selectedQuiz?.id === q.id && (
-                  <div className="w-7 h-7 rounded-full bg-[#46178f] text-white flex items-center justify-center">
-                    <Check className="w-4 h-4" />
+          <div className="space-y-3 max-h-[48vh] overflow-y-auto mb-6 pr-1">
+            {quizzes.map((q) => {
+              const isSelected = selectedQuiz?.id === q.id;
+              const isPreviewOpen = previewQuizId === q.id;
+
+              return (
+                <div
+                  key={q.id}
+                  onClick={() => setSelectedQuiz(q)}
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-[#46178f] bg-purple-50/60 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 pr-3">
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-extrabold text-lg text-gray-800">{q.title}</h3>
+                        {isSelected && (
+                          <span className="w-5 h-5 rounded-full bg-[#46178f] text-white flex items-center justify-center text-xs">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{q.description || 'Kuis interaktif'}</p>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <span className="text-xs font-bold text-[#46178f] bg-purple-100 px-2.5 py-0.5 rounded-full">
+                          {q.questions.length} Pertanyaan
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action buttons (Preview, Edit, Duplicate, Delete) */}
+                    <div className="flex items-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => setPreviewQuizId(isPreviewOpen ? null : q.id)}
+                        className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                          isPreviewOpen ? 'bg-[#46178f] text-white' : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                        title="Tinjau Pertanyaan"
+                      >
+                        {isPreviewOpen ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+
+                      <button
+                        onClick={() => onEditQuiz(q)}
+                        className="p-2 text-gray-500 hover:text-[#46178f] hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                        title="Edit Kuis"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={(e) => handleDuplicateQuiz(e, q.id)}
+                        className="p-2 text-gray-500 hover:text-[#26890c] hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                        title="Duplikat Kuis"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={(e) => handleDeleteQuiz(e, q.id)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                        title="Hapus Kuis"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {/* PREVIEW ACCORDION */}
+                  {isPreviewOpen && (
+                    <div className="mt-4 pt-3 border-t border-purple-200 space-y-2 text-xs">
+                      <p className="font-extrabold uppercase text-[#46178f] tracking-wider">Daftar Pertanyaan:</p>
+                      {q.questions.map((item, idx) => (
+                        <div key={idx} className="bg-white p-2.5 rounded-xl border border-gray-200">
+                          <div className="font-bold text-gray-800">
+                            {idx + 1}. {item.question} <span className="text-gray-400 font-normal">({item.timeLimit}s)</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5 mt-2">
+                            {item.options.map((opt, oIdx) => (
+                              <div
+                                key={oIdx}
+                                className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center justify-between ${
+                                  opt.isCorrect
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold'
+                                    : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                <span className="truncate">{opt.text}</span>
+                                {opt.isCorrect && <Check className="w-3.5 h-3.5 ml-1 flex-shrink-0" />}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex space-x-3">
@@ -382,8 +532,10 @@ export default function HostView({ onSwitchToCreate }) {
             </div>
           </div>
 
-          {/* 4 Options Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 max-h-[45vh]">
+          {/* Options Grid (2 or 4 Options) */}
+          <div className={`grid gap-4 flex-1 max-h-[45vh] ${
+            currentQuestion.options.length === 2 ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2'
+          }`}>
             {currentQuestion.options.map((optText, idx) => {
               const shape = ANSWER_SHAPES[idx] || ANSWER_SHAPES[0];
               return (
@@ -408,7 +560,9 @@ export default function HostView({ onSwitchToCreate }) {
           </div>
 
           {/* Bar Chart Distribution */}
-          <div className="grid grid-cols-4 gap-4 h-[40vh] items-end px-4 mb-6">
+          <div className={`grid gap-4 h-[40vh] items-end px-4 mb-6 ${
+            resultData.stats.length === 2 ? 'grid-cols-2 max-w-2xl mx-auto w-full' : 'grid-cols-4'
+          }`}>
             {resultData.stats.map((count, idx) => {
               const shape = ANSWER_SHAPES[idx] || ANSWER_SHAPES[0];
               const isCorrect = idx === resultData.correctOptionIndex;

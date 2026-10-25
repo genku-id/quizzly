@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../services/socket';
-import { ANSWER_SHAPES } from '../constants/theme';
-import { CheckCircle2, XCircle, Flame, Trophy, Sparkles } from 'lucide-react';
+import { ANSWER_SHAPES, generateRandomNickname } from '../constants/theme';
+import { CheckCircle2, XCircle, Flame, Trophy, Dices } from 'lucide-react';
 
 export default function PlayerView({ initialPin = '' }) {
   const [step, setStep] = useState(initialPin ? 'ENTER_NAME' : 'ENTER_PIN');
@@ -61,7 +61,7 @@ export default function PlayerView({ initialPin = '' }) {
     });
 
     socket.on('player:leaderboard', () => {
-      // Stay on round result or show mini status
+      // Stay on round result
     });
 
     socket.on('player:podium', (data) => {
@@ -101,6 +101,11 @@ export default function PlayerView({ initialPin = '' }) {
     socket.emit('player:submit_answer', { pin, optionIndex: idx });
   };
 
+  const handleRandomizeName = () => {
+    const randomName = generateRandomNickname();
+    setNickname(randomName);
+  };
+
   return (
     <div className="min-h-[calc(100vh-60px)] flex flex-col justify-center items-center p-4">
       {/* 1. ENTER PIN / NICKNAME */}
@@ -134,21 +139,33 @@ export default function PlayerView({ initialPin = '' }) {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Nama / Nickname</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500">Nama / Nickname</label>
+                <button
+                  type="button"
+                  onClick={handleRandomizeName}
+                  className="inline-flex items-center space-x-1 text-xs font-bold text-[#46178f] hover:text-[#25076b] cursor-pointer"
+                  title="Pilih nama acak lucu"
+                >
+                  <Dices className="w-3.5 h-3.5" />
+                  <span>Nama Acak</span>
+                </button>
+              </div>
+
               <input
                 type="text"
-                maxLength={15}
+                maxLength={18}
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
-                placeholder="Nama kamu..."
-                className="w-full text-center text-xl font-bold py-3 px-4 rounded-xl border-2 border-gray-200 focus:border-[#46178f] outline-none transition-all"
+                placeholder="Ketik nama atau klik Nama Acak..."
+                className="w-full text-center text-lg font-bold py-3 px-4 rounded-xl border-2 border-gray-200 focus:border-[#46178f] outline-none transition-all"
                 autoFocus={!!pin}
               />
             </div>
 
             <button
               type="submit"
-              className="w-full bg-[#26890c] hover:bg-[#1f7309] active:scale-95 text-white font-extrabold text-lg py-3 rounded-xl shadow-lg transition-all"
+              className="w-full bg-[#26890c] hover:bg-[#1f7309] active:scale-95 text-white font-extrabold text-lg py-3 rounded-xl shadow-lg transition-all cursor-pointer"
             >
               Masuk Permainan
             </button>
@@ -181,16 +198,18 @@ export default function PlayerView({ initialPin = '' }) {
         </div>
       )}
 
-      {/* 4. QUESTION CONTROLLER (4 BIG BUTTONS) */}
+      {/* 4. QUESTION CONTROLLER (2 OR 4 BIG BUTTONS) */}
       {step === 'QUESTION' && (
-        <div className="w-full max-w-lg h-[75vh] grid grid-cols-2 gap-3 p-2">
+        <div className={`w-full max-w-lg h-[75vh] p-2 gap-3 ${
+          optionsCount === 2 ? 'flex flex-col' : 'grid grid-cols-2'
+        }`}>
           {ANSWER_SHAPES.slice(0, optionsCount).map((shape) => (
             <button
               key={shape.index}
               onClick={() => handleSelectOption(shape.index)}
-              className={`${shape.bgClass} ${shape.activeClass} text-white rounded-3xl flex items-center justify-center shadow-2xl active:scale-95 transition-transform cursor-pointer border-4 border-black/10`}
+              className={`${shape.bgClass} ${shape.activeClass} text-white rounded-3xl flex items-center justify-center shadow-2xl active:scale-95 transition-transform cursor-pointer border-4 border-black/10 flex-1`}
             >
-              <div className="scale-150 transform transition-transform">
+              <div className={optionsCount === 2 ? 'scale-175' : 'scale-150'}>
                 {shape.svg}
               </div>
             </button>

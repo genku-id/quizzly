@@ -56,3 +56,21 @@ export const ANSWER_SHAPES = [
     )
   }
 ];
+
+export const LOBBY_TRACKS = [
+  { id: 'classic', name: 'Klasik Kahoot 🎶', file: '/audio/lobby.mp3' },
+  { id: '8bit', name: '8-Bit Retro Game 🕹️', file: '/audio/lobby_8bit.mp3' },
+  { id: 'disco', name: 'Disco Groovy 🪩', file: '/audio/lobby_disco.mp3' },
+  { id: 'funk', name: 'Funk & Soul 🎸', file: '/audio/lobby_funk.mp3' },
+  { id: 'reggae', name: 'Reggae Chill 🌴', file: '/audio/lobby_reggae.mp3' },
+];
+
+const ADJECTIVES = ['Lincah', 'Santai', 'Jenius', 'Cerdas', 'Gemas', 'Perkasa', 'Kilat', 'Hebat', 'Super', 'Juara', 'Keren', 'Pemberani', 'Bijak', 'Ceria'];
+const ANIMALS = ['Kucing', 'Kelinci', 'Panda', 'Singa', 'Garuda', 'Bebek', 'Koala', 'Harimau', 'Lumba2', 'Cheetah', 'Rubah', 'Serigala'];
+
+export function generateRandomNickname() {
+  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const anim = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
+  const num = Math.floor(Math.random() * 90 + 10);
+  return `${anim} ${adj} ${num}`;
+}

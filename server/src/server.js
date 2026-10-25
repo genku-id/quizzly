@@ -21,7 +21,7 @@ app.use(express.json());
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
 
@@ -62,6 +62,51 @@ app.post('/api/quizzes', (req, res) => {
   };
 
   const saved = saveQuiz(newQuiz);
+  res.status(201).json(saved);
+});
+
+app.put('/api/quizzes/:id', (req, res) => {
+  const { title, description, questions } = req.body;
+  if (!title || !questions || !Array.isArray(questions)) {
+    return res.status(400).json({ error: 'Invalid quiz payload' });
+  }
+
+  const existing = getQuizById(req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: 'Quiz not found' });
+  }
+
+  const updatedQuiz = {
+    id: req.params.id,
+    title,
+    description: description || '',
+    createdAt: existing.createdAt || new Date().toISOString(),
+    questions: questions.map((q, idx) => ({
+      id: q.id || `q-${idx + 1}`,
+      question: q.question,
+      timeLimit: Number(q.timeLimit) || 20,
+      options: q.options || []
+    }))
+  };
+
+  const saved = saveQuiz(updatedQuiz);
+  res.json(saved);
+});
+
+app.post('/api/quizzes/:id/duplicate', (req, res) => {
+  const existing = getQuizById(req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: 'Quiz not found' });
+  }
+
+  const duplicated = {
+    ...existing,
+    id: `quiz-${uuidv4()}`,
+    title: `${existing.title} (Salinan)`,
+    createdAt: new Date().toISOString()
+  };
+
+  const saved = saveQuiz(duplicated);
   res.status(201).json(saved);
 });
 

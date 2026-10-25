@@ -7,6 +7,7 @@ import { Smartphone, Monitor, PlusCircle } from 'lucide-react';
 export default function App() {
   const [mode, setMode] = useState('play'); // 'play', 'host', 'create'
   const [initialPin, setInitialPin] = useState('');
+  const [editingQuiz, setEditingQuiz] = useState(null);
 
   useEffect(() => {
     // Check URL parameters for direct deep-link (e.g. ?pin=1234 or ?mode=host)
@@ -23,6 +24,16 @@ export default function App() {
       setMode('create');
     }
   }, []);
+
+  const handleStartCreate = () => {
+    setEditingQuiz(null);
+    setMode('create');
+  };
+
+  const handleEditQuiz = (quiz) => {
+    setEditingQuiz(quiz);
+    setMode('create');
+  };
 
   return (
     <div className="min-h-screen bg-[#46178f] text-white flex flex-col font-sans">
@@ -64,7 +75,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setMode('create')}
+            onClick={handleStartCreate}
             className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
               mode === 'create'
                 ? 'bg-white text-[#46178f] shadow-md'
@@ -72,7 +83,7 @@ export default function App() {
             }`}
           >
             <PlusCircle className="w-4 h-4" />
-            <span>Buat Kuis</span>
+            <span>{editingQuiz ? 'Edit Kuis' : 'Buat Kuis'}</span>
           </button>
         </nav>
       </header>
@@ -81,12 +92,22 @@ export default function App() {
       <main className="flex-1 flex flex-col">
         {mode === 'play' && <PlayerView initialPin={initialPin} />}
         {mode === 'host' && (
-          <HostView onSwitchToCreate={() => setMode('create')} />
+          <HostView
+            onSwitchToCreate={handleStartCreate}
+            onEditQuiz={handleEditQuiz}
+          />
         )}
         {mode === 'create' && (
           <CreateQuizView
-            onBack={() => setMode('host')}
-            onHostCreatedQuiz={() => setMode('host')}
+            quizToEdit={editingQuiz}
+            onBack={() => {
+              setEditingQuiz(null);
+              setMode('host');
+            }}
+            onHostCreatedQuiz={() => {
+              setEditingQuiz(null);
+              setMode('host');
+            }}
           />
         )}
       </main>

@@ -1,42 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ANSWER_SHAPES } from '../constants/theme';
-import { Plus, Trash2, CheckCircle2, Save, ArrowLeft, Play } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Save, ArrowLeft, Play, Copy, HelpCircle } from 'lucide-react';
 
-export default function CreateQuizView({ onBack, onHostCreatedQuiz }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [questions, setQuestions] = useState([
-    {
-      id: 'q-1',
-      question: '',
-      timeLimit: 20,
-      options: [
-        { text: '', isCorrect: true },
-        { text: '', isCorrect: false },
-        { text: '', isCorrect: false },
-        { text: '', isCorrect: false }
-      ]
-    }
-  ]);
+export default function CreateQuizView({ onBack, onHostCreatedQuiz, quizToEdit = null }) {
+  const [title, setTitle] = useState(quizToEdit ? quizToEdit.title : '');
+  const [description, setDescription] = useState(quizToEdit ? quizToEdit.description || '' : '');
+  const [questions, setQuestions] = useState(
+    quizToEdit && quizToEdit.questions?.length > 0
+      ? quizToEdit.questions.map(q => ({
+          ...q,
+          type: q.options?.length === 2 ? 'true_false' : 'multiple_choice'
+        }))
+      : [
+          {
+            id: 'q-1',
+            type: 'multiple_choice',
+            question: '',
+            timeLimit: 20,
+            options: [
+              { text: '', isCorrect: true },
+              { text: '', isCorrect: false },
+              { text: '', isCorrect: false },
+              { text: '', isCorrect: false }
+            ]
+          }
+        ]
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [savedQuiz, setSavedQuiz] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleAddQuestion = () => {
-    setQuestions([
-      ...questions,
-      {
-        id: `q-${Date.now()}`,
-        question: '',
-        timeLimit: 20,
-        options: [
+  const handleAddQuestion = (type = 'multiple_choice') => {
+    const newOptions = type === 'true_false'
+      ? [
+          { text: 'Salah', isCorrect: false },
+          { text: 'Benar', isCorrect: true }
+        ]
+      : [
           { text: '', isCorrect: true },
           { text: '', isCorrect: false },
           { text: '', isCorrect: false },
           { text: '', isCorrect: false }
-        ]
+        ];
+
+    setQuestions([
+      ...questions,
+      {
+        id: `q-${Date.now()}`,
+        type,
+        question: '',
+        timeLimit: 20,
+        options: newOptions
       }
     ]);
+  };
+
+  const handleDuplicateQuestion = (idx) => {
+    const q = questions[idx];
+    const cloned = {
+      ...q,
+      id: `q-${Date.now()}`,
+      options: q.options.map(o => ({ ...o }))
+    };
+    const nextQuestions = [...questions];
+    nextQuestions.splice(idx + 1, 0, cloned);
+    setQuestions(nextQuestions);
+  };
+
+  const handleToggleQuestionType = (qIdx, newType) => {
+    const updated = [...questions];
+    const q = updated[qIdx];
+    q.type = newType;
+    if (newType === 'true_false') {
+      q.options = [
+        { text: 'Salah', isCorrect: false },
+        { text: 'Benar', isCorrect: true }
+      ];
+    } else {
+      q.options = [
+        { text: '', isCorrect: true },
+        { text: '', isCorrect: false },
+        { text: '', isCorrect: false },
+        { text: '', isCorrect: false }
+      ];
+    }
+    setQuestions(updated);
   };
 
   const handleRemoveQuestion = (idx) => {
@@ -103,9 +151,15 @@ export default function CreateQuizView({ onBack, onHostCreatedQuiz }) {
     setErrorMsg('');
     setIsSaving(true);
 
+    const isEditMode = !!quizToEdit;
+    const url = isEditMode
+      ? `${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes/${quizToEdit.id}`
+      : `${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes`;
+    const method = isEditMode ? 'PUT' : 'POST';
+
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/quizzes`, {
-        method: 'POST',
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
@@ -130,7 +184,9 @@ export default function CreateQuizView({ onBack, onHostCreatedQuiz }) {
         <div className="w-16 h-16 bg-emerald-100 text-[#26890c] rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle2 className="w-10 h-10" />
         </div>
-        <h2 className="text-3xl font-black text-[#46178f]">Kuis Berhasil Dibuat!</h2>
+        <h2 className="text-3xl font-black text-[#46178f]">
+          {quizToEdit ? 'Perubahan Kuis Disimpan!' : 'Kuis Berhasil Dibuat!'}
+        </h2>
         <p className="text-lg font-bold text-gray-700 mt-2">{savedQuiz.title}</p>
         <p className="text-sm text-gray-500 mb-8">{savedQuiz.questions.length} Pertanyaan tersimpan di server.</p>
 
@@ -139,7 +195,7 @@ export default function CreateQuizView({ onBack, onHostCreatedQuiz }) {
             onClick={onBack}
             className="flex-1 py-3 px-4 border-2 border-gray-300 hover:bg-gray-100 font-bold rounded-xl transition-all cursor-pointer"
           >
-            Kembali ke Beranda
+            Kembali ke Daftar Kuis
           </button>
           <button
             onClick={() => onHostCreatedQuiz(savedQuiz)}
@@ -163,7 +219,9 @@ export default function CreateQuizView({ onBack, onHostCreatedQuiz }) {
           <ArrowLeft className="w-4 h-4" />
           <span>Kembali</span>
         </button>
-        <h1 className="text-2xl md:text-3xl font-black text-amber-300">Buat Kuis Baru (Quiz Creator)</h1>
+        <h1 className="text-2xl md:text-3xl font-black text-amber-300">
+          {quizToEdit ? 'Edit Kuis' : 'Buat Kuis Baru'}
+        </h1>
       </div>
 
       {errorMsg && (
@@ -207,34 +265,71 @@ export default function CreateQuizView({ onBack, onHostCreatedQuiz }) {
         <div className="space-y-6">
           {questions.map((q, qIdx) => (
             <div key={q.id} className="bg-white text-gray-900 rounded-3xl p-6 shadow-xl border-2 border-purple-100">
-              <div className="flex justify-between items-center mb-3">
+              <div className="flex flex-wrap justify-between items-center gap-3 mb-3">
                 <span className="font-black text-lg text-[#46178f]">
                   Soal #{qIdx + 1}
                 </span>
 
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  {/* Question Type Toggle */}
+                  <div className="bg-gray-100 p-1 rounded-xl flex items-center text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleQuestionType(qIdx, 'multiple_choice')}
+                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                        q.type === 'multiple_choice'
+                          ? 'bg-[#46178f] text-white shadow'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      4 Opsi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleQuestionType(qIdx, 'true_false')}
+                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                        q.type === 'true_false'
+                          ? 'bg-[#46178f] text-white shadow'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Benar/Salah
+                    </button>
+                  </div>
+
+                  {/* Time limit dropdown */}
                   <div className="flex items-center space-x-1.5 bg-gray-100 px-3 py-1.5 rounded-xl text-sm font-bold">
                     <span className="text-gray-500 text-xs">Waktu:</span>
                     <select
                       value={q.timeLimit}
                       onChange={(e) => handleTimeLimitChange(qIdx, e.target.value)}
-                      className="bg-transparent font-extrabold text-[#46178f] outline-none cursor-pointer"
+                      className="bg-transparent font-extrabold text-[#46178f] outline-none cursor-pointer text-xs"
                     >
-                      <option value={10}>10 Detik</option>
-                      <option value={15}>15 Detik</option>
-                      <option value={20}>20 Detik</option>
-                      <option value={30}>30 Detik</option>
-                      <option value={60}>60 Detik</option>
+                      <option value={5}>5s</option>
+                      <option value={10}>10s</option>
+                      <option value={15}>15s</option>
+                      <option value={20}>20s</option>
+                      <option value={30}>30s</option>
+                      <option value={60}>60s</option>
                     </select>
                   </div>
 
                   <button
                     type="button"
+                    onClick={() => handleDuplicateQuestion(qIdx)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+                    title="Duplikat pertanyaan ini"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleRemoveQuestion(qIdx)}
-                    className="p-2 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                     title="Hapus soal"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -249,16 +344,16 @@ export default function CreateQuizView({ onBack, onHostCreatedQuiz }) {
                 className="w-full text-lg font-bold py-3 px-4 rounded-2xl border-2 border-gray-200 focus:border-[#46178f] outline-none mb-4"
               />
 
-              {/* 4 Colored Options Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Options Grid */}
+              <div className={`grid gap-3 ${q.options.length === 2 ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2'}`}>
                 {q.options.map((opt, optIdx) => {
                   const shape = ANSWER_SHAPES[optIdx];
                   return (
                     <div
                       key={optIdx}
-                      className={`flex items-center p-2 rounded-2xl border-2 transition-all ${
+                      className={`flex items-center p-2.5 rounded-2xl border-2 transition-all ${
                         opt.isCorrect
-                          ? 'border-emerald-500 bg-emerald-50/50'
+                          ? 'border-emerald-500 bg-emerald-50/60'
                           : 'border-gray-200'
                       }`}
                     >
@@ -298,23 +393,32 @@ export default function CreateQuizView({ onBack, onHostCreatedQuiz }) {
         </div>
 
         {/* Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 pt-4">
+        <div className="flex flex-col sm:flex-row gap-3 pt-4">
           <button
             type="button"
-            onClick={handleAddQuestion}
-            className="flex-1 py-3.5 px-6 border-2 border-dashed border-white/60 hover:border-white text-white font-extrabold rounded-2xl transition-all flex items-center justify-center space-x-2 cursor-pointer hover:bg-white/10"
+            onClick={() => handleAddQuestion('multiple_choice')}
+            className="flex-1 py-3 px-4 border-2 border-dashed border-white/60 hover:border-white text-white font-extrabold rounded-2xl transition-all flex items-center justify-center space-x-2 cursor-pointer hover:bg-white/10"
           >
             <Plus className="w-5 h-5" />
-            <span>Tambah Pertanyaan Lain</span>
+            <span>Tambah Pilihan Ganda (4 Opsi)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleAddQuestion('true_false')}
+            className="flex-1 py-3 px-4 border-2 border-dashed border-amber-300/80 hover:border-amber-300 text-amber-300 font-extrabold rounded-2xl transition-all flex items-center justify-center space-x-2 cursor-pointer hover:bg-amber-400/10"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Tambah Benar/Salah (2 Opsi)</span>
           </button>
 
           <button
             type="submit"
             disabled={isSaving}
-            className="flex-1 py-3.5 px-6 bg-[#26890c] hover:bg-[#1f7309] text-white font-black text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+            className="flex-1 py-3 px-6 bg-[#26890c] hover:bg-[#1f7309] text-white font-black text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
           >
             <Save className="w-5 h-5" />
-            <span>{isSaving ? 'Menyimpan...' : 'Simpan Kuis'}</span>
+            <span>{isSaving ? 'Menyimpan...' : (quizToEdit ? 'Simpan Perubahan' : 'Simpan Kuis')}</span>
           </button>
         </div>
       </form>
