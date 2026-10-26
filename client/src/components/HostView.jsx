@@ -298,14 +298,8 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
       {/* 1. SELECT QUIZ */}
       {step === 'SELECT_QUIZ' && (
         <div className="max-w-3xl mx-auto my-auto p-6 bg-white text-gray-900 rounded-3xl shadow-2xl w-full">
-          <div className="flex justify-between items-center mb-1">
+          <div className="mb-1">
             <h2 className="text-2xl font-black text-[#46178f]">Daftar Kuis Anda</h2>
-            <button
-              onClick={onSwitchToCreate}
-              className="text-xs font-bold text-[#46178f] hover:underline cursor-pointer"
-            >
-              + Buat Kuis Baru
-            </button>
           </div>
           <p className="text-sm text-gray-500 mb-6">Pilih kuis yang ingin dipandu, atau tinjau, edit, dan duplikat bank soal.</p>
 
@@ -413,17 +407,11 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
             })}
           </div>
 
-          <div className="flex space-x-3">
-            <button
-              onClick={onSwitchToCreate}
-              className="flex-1 py-3 px-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-100 font-bold rounded-xl transition-all cursor-pointer"
-            >
-              + Buat Kuis Baru
-            </button>
+          <div>
             <button
               onClick={handleStartRoom}
               disabled={!selectedQuiz}
-              className="flex-1 py-3 px-4 bg-[#26890c] hover:bg-[#1f7309] text-white font-extrabold rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50"
+              className="w-full py-3.5 px-6 bg-[#26890c] hover:bg-[#1f7309] text-white font-extrabold rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 text-base"
             >
               <Play className="w-5 h-5 fill-white" />
               <span>Buka Room Host</span>
