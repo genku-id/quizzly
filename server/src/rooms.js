@@ -27,6 +27,7 @@ export class RoomManager {
       countdownTimer: null,
       players: new Map(), // socketId -> playerData
       answers: new Map(), // socketId -> { optionIndex, timeTaken, isCorrect, points }
+      winnerCount: 3,
     };
 
     this.rooms.set(pin, room);
@@ -83,9 +84,10 @@ export class RoomManager {
     return null;
   }
 
-  startGame(pin) {
+  startGame(pin, winnerCount = 3) {
     const room = this.rooms.get(pin);
     if (!room || room.players.size === 0) return false;
+    room.winnerCount = Math.max(1, parseInt(winnerCount) || 3);
     this.startGetReady(pin, 0);
     return true;
   }
@@ -302,7 +304,8 @@ export class RoomManager {
     const allRanked = Array.from(room.players.values())
       .sort((a, b) => b.score - a.score);
 
-    const top3 = allRanked.slice(0, 3).map((p, idx) => ({
+    const winnerCount = Math.max(1, room.winnerCount || 3);
+    const winners = allRanked.slice(0, winnerCount).map((p, idx) => ({
       rank: idx + 1,
       id: p.id,
       name: p.name,
@@ -310,7 +313,9 @@ export class RoomManager {
     }));
 
     this.io.to(`host:${pin}`).emit('game:podium', {
-      top3,
+      winnerCount,
+      winners,
+      top3: winners.slice(0, 3), // backward compatibility
       allPlayers: allRanked.map((p, idx) => ({
         rank: idx + 1,
         name: p.name,
@@ -327,7 +332,8 @@ export class RoomManager {
         playedAt: new Date().toISOString(),
         totalQuestions: room.quiz.questions.length,
         totalPlayers: allRanked.length,
-        podium: top3.map(p => ({ rank: p.rank, name: p.name, score: p.score })),
+        winnerCount,
+        podium: winners.map(p => ({ rank: p.rank, name: p.name, score: p.score })),
         leaderboard: allRanked.map((p, idx) => ({ rank: idx + 1, name: p.name, score: p.score }))
       });
     } catch (err) {
@@ -339,7 +345,8 @@ export class RoomManager {
       this.io.to(sId).emit('player:podium', {
         rank,
         totalScore: p.score,
-        isWinner: rank <= 3
+        winnerCount,
+        isWinner: rank <= winnerCount
       });
     }
   }

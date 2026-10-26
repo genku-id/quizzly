@@ -40,6 +40,7 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
   const [podiumData, setPodiumData] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedLobbyTrack, setSelectedLobbyTrack] = useState(LOBBY_TRACKS[0]);
+  const [winnerCount, setWinnerCount] = useState(3);
 
   const questionTimerRef = useRef(null);
 
@@ -183,7 +184,7 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
       alert('Tunggu minimal 1 pemain untuk bergabung!');
       return;
     }
-    socket.emit('host:start_game', { pin });
+    socket.emit('host:start_game', { pin, winnerCount });
   };
 
   const handleAdvance = () => {
@@ -472,6 +473,39 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
             </div>
           </div>
 
+          {/* Settings: Jumlah Pencari Juara (Podium) */}
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center space-x-3 text-center sm:text-left">
+              <div className="w-10 h-10 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center flex-shrink-0 shadow-md">
+                <Trophy className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-extrabold text-sm sm:text-base text-white block">
+                  Pencari Juara (Podium Akhir)
+                </span>
+                <span className="text-xs text-white/70">
+                  Tentukan berapa banyak juara yang akan diumumkan dan dicatat di riwayat
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-1.5 bg-black/30 p-1.5 rounded-xl border border-white/15">
+              {[1, 2, 3, 4, 5].map((num) => (
+                <button
+                  key={num}
+                  onClick={() => setWinnerCount(num)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                    winnerCount === num
+                      ? 'bg-amber-400 text-amber-950 shadow-md scale-105'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  Top {num}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Action buttons (Tutup Room & Mulai Kuis) */}
           <div className="flex justify-between items-center">
             <button
@@ -654,14 +688,16 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
             <p className="text-white/80 font-semibold mt-1">Selamat kepada para pemenang!</p>
           </div>
 
-          {/* 3-Step Podium Bars */}
-          <div className="flex items-end justify-center w-full max-w-3xl h-[45vh] gap-4 mb-8">
-            {/* 2nd Place */}
-            {podiumData.top3[1] && (
+          {/* Podium Bars */}
+          <div className="flex items-end justify-center w-full max-w-3xl h-[45vh] gap-4 mb-6">
+            {/* 2nd Place (Only if winnerCount >= 2 and player exists) */}
+            {(podiumData.winnerCount || 3) >= 2 && (podiumData.winners?.[1] || podiumData.top3?.[1]) && (
               <div className="flex-1 flex flex-col items-center animate-pop" style={{ animationDelay: '0.2s' }}>
-                <span className="text-xl font-black text-white mb-2">{podiumData.top3[1].name}</span>
+                <span className="text-xl font-black text-white mb-2 truncate max-w-[150px]">
+                  {(podiumData.winners?.[1] || podiumData.top3[1]).name}
+                </span>
                 <span className="text-sm font-extrabold text-amber-200 mb-2">
-                  {podiumData.top3[1].score.toLocaleString()} pts
+                  {(podiumData.winners?.[1] || podiumData.top3[1]).score.toLocaleString()} pts
                 </span>
                 <div className="w-full h-44 bg-gray-300 text-gray-800 rounded-t-3xl flex flex-col items-center justify-center shadow-2xl border-t-4 border-white">
                   <span className="text-5xl font-black">2</span>
@@ -670,12 +706,14 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
             )}
 
             {/* 1st Place */}
-            {podiumData.top3[0] && (
+            {(podiumData.winners?.[0] || podiumData.top3?.[0]) && (
               <div className="flex-1 flex flex-col items-center animate-pop" style={{ animationDelay: '0.6s' }}>
                 <Trophy className="w-12 h-12 text-amber-300 mb-1 drop-shadow-lg" />
-                <span className="text-2xl font-black text-white mb-1">{podiumData.top3[0].name}</span>
+                <span className="text-2xl font-black text-white mb-1 truncate max-w-[180px]">
+                  {(podiumData.winners?.[0] || podiumData.top3[0]).name}
+                </span>
                 <span className="text-base font-extrabold text-amber-300 mb-2">
-                  {podiumData.top3[0].score.toLocaleString()} pts
+                  {(podiumData.winners?.[0] || podiumData.top3[0]).score.toLocaleString()} pts
                 </span>
                 <div className="w-full h-64 bg-amber-400 text-amber-950 rounded-t-3xl flex flex-col items-center justify-center shadow-2xl border-t-4 border-amber-200">
                   <span className="text-7xl font-black">1</span>
@@ -683,12 +721,14 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
               </div>
             )}
 
-            {/* 3rd Place */}
-            {podiumData.top3[2] && (
+            {/* 3rd Place (Only if winnerCount >= 3 and player exists) */}
+            {(podiumData.winnerCount || 3) >= 3 && (podiumData.winners?.[2] || podiumData.top3?.[2]) && (
               <div className="flex-1 flex flex-col items-center animate-pop" style={{ animationDelay: '0.4s' }}>
-                <span className="text-xl font-black text-white mb-2">{podiumData.top3[2].name}</span>
+                <span className="text-xl font-black text-white mb-2 truncate max-w-[150px]">
+                  {(podiumData.winners?.[2] || podiumData.top3[2]).name}
+                </span>
                 <span className="text-sm font-extrabold text-amber-200 mb-2">
-                  {podiumData.top3[2].score.toLocaleString()} pts
+                  {(podiumData.winners?.[2] || podiumData.top3[2]).score.toLocaleString()} pts
                 </span>
                 <div className="w-full h-32 bg-amber-700 text-amber-100 rounded-t-3xl flex flex-col items-center justify-center shadow-2xl border-t-4 border-amber-600">
                   <span className="text-4xl font-black">3</span>
@@ -696,6 +736,29 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
               </div>
             )}
           </div>
+
+          {/* Additional Winners (Juara 4, 5, dst jika diatur) */}
+          {podiumData.winners && podiumData.winners.length > 3 && (
+            <div className="flex flex-wrap items-center justify-center gap-3 w-full max-w-3xl mb-8 animate-pop">
+              {podiumData.winners.slice(3).map((w) => (
+                <div
+                  key={w.rank}
+                  className="bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl px-5 py-2.5 flex items-center space-x-3 text-white shadow-lg"
+                >
+                  <span className="text-2xl">🏅</span>
+                  <div className="text-left">
+                    <span className="text-[10px] uppercase font-black text-amber-300 block">
+                      Juara {w.rank}
+                    </span>
+                    <span className="font-extrabold text-base">{w.name}</span>
+                  </div>
+                  <span className="font-black text-amber-200 text-sm ml-2">
+                    {w.score.toLocaleString()} pts
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex space-x-4">
             <button

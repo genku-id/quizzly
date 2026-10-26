@@ -289,7 +289,9 @@ export default function PlayerView({ initialPin = '' }) {
           </div>
 
           <h2 className="text-2xl font-black text-[#46178f]">Game Selesai!</h2>
-          <p className="text-gray-500 font-semibold mt-1">Kamu finis di peringkat:</p>
+          <p className="text-gray-600 font-bold mt-1 text-sm">
+            {finalPodium.isWinner ? `🎉 Selamat! Kamu Juara ${finalPodium.rank}!` : 'Kamu finis di peringkat:'}
+          </p>
 
           <div className="text-6xl font-black text-[#e21b3c] my-4">
             #{finalPodium.rank}

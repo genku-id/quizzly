@@ -193,8 +193,8 @@ io.on('connection', (socket) => {
   });
 
   // 3. Host starts game
-  socket.on('host:start_game', ({ pin }) => {
-    const success = roomManager.startGame(pin);
+  socket.on('host:start_game', ({ pin, winnerCount }) => {
+    const success = roomManager.startGame(pin, winnerCount);
     if (!success) {
       socket.emit('host:error', { message: 'Gagal memulai kuis (pastikan ada pemain yang bergabung).' });
     }

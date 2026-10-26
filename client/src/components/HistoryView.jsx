@@ -399,38 +399,38 @@ export default function HistoryView() {
                               </div>
                             </div>
 
-                            {/* Podium for this session */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 bg-purple-50/40 rounded-xl border border-purple-100 mb-3 text-xs">
-                              {/* Juara 1 */}
-                              <div className="flex items-center space-x-2 bg-amber-50/80 p-2 rounded-lg border border-amber-200">
-                                <span className="text-xl">🥇</span>
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-[9px] font-black uppercase tracking-wider text-amber-700">Juara 1</div>
-                                  <div className="font-extrabold text-gray-800 truncate">{top1 ? top1.name : '-'}</div>
-                                </div>
-                                <div className="font-black text-amber-600 text-xs">{top1 ? `${top1.score.toLocaleString()} pts` : '-'}</div>
+                            {/* Podium Badges for this session (Dynamic based on winnerCount) */}
+                            {session.podium && session.podium.length > 0 && (
+                              <div className="flex flex-wrap gap-2 p-3 bg-purple-50/40 rounded-xl border border-purple-100 mb-3 text-xs">
+                                {session.podium.map((winner) => (
+                                  <div
+                                    key={winner.rank}
+                                    className={`flex-1 min-w-[140px] flex items-center space-x-2 p-2 rounded-lg border ${
+                                      winner.rank === 1
+                                        ? 'bg-amber-50/90 border-amber-300'
+                                        : winner.rank === 2
+                                        ? 'bg-slate-50/90 border-slate-300'
+                                        : winner.rank === 3
+                                        ? 'bg-amber-900/10 border-amber-800/20'
+                                        : 'bg-white border-purple-200'
+                                    }`}
+                                  >
+                                    <span className="text-xl">
+                                      {winner.rank === 1 ? '🥇' : winner.rank === 2 ? '🥈' : winner.rank === 3 ? '🥉' : '🏅'}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-[9px] font-black uppercase tracking-wider text-purple-900">
+                                        Juara {winner.rank}
+                                      </div>
+                                      <div className="font-extrabold text-gray-800 truncate">{winner.name}</div>
+                                    </div>
+                                    <div className="font-black text-[#46178f] text-xs">
+                                      {winner.score.toLocaleString()} pts
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-
-                              {/* Juara 2 */}
-                              <div className="flex items-center space-x-2 bg-slate-50/80 p-2 rounded-lg border border-slate-200">
-                                <span className="text-xl">🥈</span>
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-[9px] font-black uppercase tracking-wider text-slate-700">Juara 2</div>
-                                  <div className="font-extrabold text-gray-800 truncate">{top2 ? top2.name : '-'}</div>
-                                </div>
-                                <div className="font-black text-slate-600 text-xs">{top2 ? `${top2.score.toLocaleString()} pts` : '-'}</div>
-                              </div>
-
-                              {/* Juara 3 */}
-                              <div className="flex items-center space-x-2 bg-amber-900/10 p-2 rounded-lg border border-amber-800/20">
-                                <span className="text-xl">🥉</span>
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-[9px] font-black uppercase tracking-wider text-amber-800">Juara 3</div>
-                                  <div className="font-extrabold text-gray-800 truncate">{top3 ? top3.name : '-'}</div>
-                                </div>
-                                <div className="font-black text-amber-800 text-xs">{top3 ? `${top3.score.toLocaleString()} pts` : '-'}</div>
-                              </div>
-                            </div>
+                            )}
 
                             {/* Toggle Table for All Participants */}
                             <button
