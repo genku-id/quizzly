@@ -3,13 +3,16 @@ import PlayerView from './components/PlayerView';
 import HostView from './components/HostView';
 import CreateQuizView from './components/CreateQuizView';
 import HistoryView from './components/HistoryView';
-import { Smartphone, Monitor, PlusCircle, Lock, Unlock, LogOut, X, KeyRound, History } from 'lucide-react';
+import { Monitor, PlusCircle, Lock, Unlock, LogOut, X, KeyRound, History } from 'lucide-react';
 
 export default function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     return sessionStorage.getItem('quizzly_admin_auth') === 'true';
   });
-  const [mode, setMode] = useState('play'); // 'play', 'host', 'create'
+  const [mode, setMode] = useState(() => {
+    const isAdmin = sessionStorage.getItem('quizzly_admin_auth') === 'true';
+    return isAdmin ? 'host' : 'play';
+  });
   const [initialPin, setInitialPin] = useState('');
   const [editingQuiz, setEditingQuiz] = useState(null);
 
@@ -88,7 +91,7 @@ export default function App() {
       {/* GLOBAL NAVIGATION HEADER */}
       <header className="h-[60px] bg-black/30 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-4 sm:px-8 z-50">
         <div
-          onClick={() => setMode('play')}
+          onClick={() => setMode(isAdminLoggedIn ? 'host' : 'play')}
           className="flex items-center space-x-2 cursor-pointer select-none"
         >
           <span className="text-2xl font-black tracking-tight text-white drop-shadow">
@@ -102,18 +105,6 @@ export default function App() {
             <div className="flex items-center space-x-2">
               {/* Mode Selector Tabs (Visible ONLY for Admin) */}
               <nav className="flex items-center space-x-1 sm:space-x-1.5 bg-white/10 p-1 rounded-2xl border border-white/15">
-                <button
-                  onClick={() => setMode('play')}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
-                    mode === 'play'
-                      ? 'bg-white text-[#46178f] shadow-md'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <Smartphone className="w-4 h-4" />
-                  <span className="hidden sm:inline">Main (HP)</span>
-                </button>
-
                 <button
                   onClick={handleSelectHost}
                   className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
