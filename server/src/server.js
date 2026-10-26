@@ -7,6 +7,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { getAllQuizzes, getQuizById, saveQuiz, deleteQuiz } from './storage.js';
+import { getAllHistory, deleteHistoryItem, clearAllHistory } from './historyStorage.js';
 import { RoomManager } from './rooms.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -112,6 +113,21 @@ app.post('/api/quizzes/:id/duplicate', (req, res) => {
 
 app.delete('/api/quizzes/:id', (req, res) => {
   deleteQuiz(req.params.id);
+  res.json({ success: true });
+});
+
+// === HISTORY API ===
+app.get('/api/history', (req, res) => {
+  res.json(getAllHistory());
+});
+
+app.delete('/api/history/:id', (req, res) => {
+  deleteHistoryItem(req.params.id);
+  res.json({ success: true });
+});
+
+app.delete('/api/history', (req, res) => {
+  clearAllHistory();
   res.json({ success: true });
 });
 

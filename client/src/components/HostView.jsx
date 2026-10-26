@@ -472,8 +472,21 @@ export default function HostView({ onSwitchToCreate, onEditQuiz }) {
             </div>
           </div>
 
-          {/* Start button */}
-          <div className="flex justify-end">
+          {/* Action buttons (Tutup Room & Mulai Kuis) */}
+          <div className="flex justify-between items-center">
+            <button
+              onClick={() => {
+                if (confirm('Tutup room ini dan kembali ke daftar kuis?')) {
+                  soundManager.stopMusic();
+                  setStep('SELECT_QUIZ');
+                  setPlayers([]);
+                  setPin('');
+                }
+              }}
+              className="bg-white/15 hover:bg-white/25 text-white font-bold py-3 px-6 rounded-2xl transition-all cursor-pointer text-sm border border-white/20"
+            >
+              Tutup Room
+            </button>
             <button
               onClick={handleStartGame}
               disabled={players.length === 0}

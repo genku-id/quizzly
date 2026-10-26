@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import PlayerView from './components/PlayerView';
 import HostView from './components/HostView';
 import CreateQuizView from './components/CreateQuizView';
-import { Smartphone, Monitor, PlusCircle, Lock, Unlock, LogOut, X, KeyRound } from 'lucide-react';
+import HistoryView from './components/HistoryView';
+import { Smartphone, Monitor, PlusCircle, Lock, Unlock, LogOut, X, KeyRound, History } from 'lucide-react';
 
 export default function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
@@ -136,6 +137,18 @@ export default function App() {
                   <PlusCircle className="w-4 h-4" />
                   <span>{editingQuiz ? 'Edit Kuis' : 'Buat Kuis'}</span>
                 </button>
+
+                <button
+                  onClick={() => setMode('history')}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+                    mode === 'history'
+                      ? 'bg-white text-[#46178f] shadow-md'
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <History className="w-4 h-4" />
+                  <span>Riwayat</span>
+                </button>
               </nav>
 
               {/* Logout Button */}
@@ -225,12 +238,17 @@ export default function App() {
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col">
         {mode === 'play' && <PlayerView initialPin={initialPin} />}
-        {mode === 'host' && isAdminLoggedIn && (
-          <HostView
-            onSwitchToCreate={handleStartCreate}
-            onEditQuiz={handleEditQuiz}
-          />
+
+        {/* Keep HostView persistently mounted when admin is logged in so changing tabs doesn't destroy the active room or PIN */}
+        {isAdminLoggedIn && (
+          <div className={`flex-1 flex flex-col ${mode === 'host' ? '' : 'hidden'}`}>
+            <HostView
+              onSwitchToCreate={handleStartCreate}
+              onEditQuiz={handleEditQuiz}
+            />
+          </div>
         )}
+
         {mode === 'create' && isAdminLoggedIn && (
           <CreateQuizView
             quizToEdit={editingQuiz}
@@ -243,6 +261,10 @@ export default function App() {
               setMode('host');
             }}
           />
+        )}
+
+        {mode === 'history' && isAdminLoggedIn && (
+          <HistoryView />
         )}
       </main>
     </div>

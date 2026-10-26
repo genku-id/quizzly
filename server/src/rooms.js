@@ -1,3 +1,5 @@
+import { saveHistoryItem } from './historyStorage.js';
+
 export class RoomManager {
   constructor(io) {
     this.io = io;
@@ -315,6 +317,22 @@ export class RoomManager {
         score: p.score
       }))
     });
+
+    // Auto-save game session to history
+    try {
+      saveHistoryItem({
+        id: `hist-${Date.now()}`,
+        quizId: room.quiz.id,
+        quizTitle: room.quiz.title,
+        playedAt: new Date().toISOString(),
+        totalQuestions: room.quiz.questions.length,
+        totalPlayers: allRanked.length,
+        podium: top3.map(p => ({ rank: p.rank, name: p.name, score: p.score })),
+        leaderboard: allRanked.map((p, idx) => ({ rank: idx + 1, name: p.name, score: p.score }))
+      });
+    } catch (err) {
+      console.error('[History] Failed to auto-save game history:', err);
+    }
 
     for (const [sId, p] of room.players.entries()) {
       const rank = allRanked.findIndex(x => x.id === sId) + 1;
