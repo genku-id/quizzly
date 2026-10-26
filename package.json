@@ -8,5 +8,8 @@
     "start": "node server/src/server.js",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0"
   }
 }

@@ -6,8 +6,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
-import { getAllQuizzes, getQuizById, saveQuiz, deleteQuiz } from './storage.js';
-import { getAllHistory, deleteHistoryItem, clearAllHistory } from './historyStorage.js';
+import { getAllQuizzes, getQuizById, saveQuiz, deleteQuiz, syncQuizzesFromSupabase } from './storage.js';
+import { getAllHistory, deleteHistoryItem, clearAllHistory, syncHistoryFromSupabase } from './historyStorage.js';
 import { RoomManager } from './rooms.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -243,6 +243,8 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`🚀 Quizzly Realtime Server running on port ${PORT}`);
+  await syncQuizzesFromSupabase();
+  await syncHistoryFromSupabase();
 });
