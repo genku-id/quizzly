@@ -1,11 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Trophy, Calendar, Users, HelpCircle, Trash2, ChevronDown, ChevronUp, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Trophy, 
+  Calendar, 
+  Users, 
+  HelpCircle, 
+  Trash2, 
+  ChevronDown, 
+  ChevronUp, 
+  AlertCircle, 
+  RefreshCw, 
+  Folder, 
+  FolderOpen,
+  Gamepad2,
+  Clock
+} from 'lucide-react';
 
 export default function HistoryView() {
   const [historyList, setHistoryList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState(null);
+  
+  // Track open quiz groups (Set or Array of keys)
+  const [expandedQuizKey, setExpandedQuizKey] = useState(null);
+  
+  // Track open leaderboard table inside a session
+  const [expandedSessionId, setExpandedSessionId] = useState(null);
+  
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmDeleteQuizGroup, setConfirmDeleteQuizGroup] = useState(null);
   const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   const fetchHistory = async () => {
@@ -27,6 +48,35 @@ export default function HistoryView() {
     fetchHistory();
   }, []);
 
+  // Group history by Quiz
+  const quizGroups = useMemo(() => {
+    const map = new Map();
+    historyList.forEach((item) => {
+      const key = item.quizId || item.quizTitle || 'uncategorized';
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          quizId: item.quizId,
+          quizTitle: item.quizTitle,
+          totalQuestions: item.totalQuestions,
+          sessions: [],
+        });
+      }
+      map.get(key).sessions.push(item);
+    });
+
+    // Automatically expand the first quiz group by default if none is opened
+    const groups = Array.from(map.values());
+    return groups;
+  }, [historyList]);
+
+  // Set default expanded group to the first one once loaded
+  useEffect(() => {
+    if (quizGroups.length > 0 && expandedQuizKey === null) {
+      setExpandedQuizKey(quizGroups[0].key);
+    }
+  }, [quizGroups, expandedQuizKey]);
+
   const handleDeleteItem = async (id) => {
     try {
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/history/${id}`, {
@@ -41,6 +91,21 @@ export default function HistoryView() {
     }
   };
 
+  const handleDeleteGroup = async (sessions) => {
+    try {
+      for (const s of sessions) {
+        await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/history/${s.id}`, {
+          method: 'DELETE',
+        });
+      }
+      const deletedIds = new Set(sessions.map((s) => s.id));
+      setHistoryList((prev) => prev.filter((item) => !deletedIds.has(item.id)));
+      setConfirmDeleteQuizGroup(null);
+    } catch (err) {
+      console.error('Failed to delete quiz history group:', err);
+    }
+  };
+
   const handleClearAll = async () => {
     try {
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || ''}/api/history`, {
@@ -49,6 +114,7 @@ export default function HistoryView() {
       if (res.ok) {
         setHistoryList([]);
         setConfirmClearAll(false);
+        setExpandedQuizKey(null);
       }
     } catch (err) {
       console.error('Failed to clear history:', err);
@@ -83,7 +149,7 @@ export default function HistoryView() {
               <span>Riwayat Permainan</span>
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">
-              Catatan hasil kuis, peringkat juara, dan skor akhir seluruh peserta.
+              Dikelompokkan berdasarkan Judul Kuis & setiap sesi 1x main.
             </p>
           </div>
 
@@ -115,7 +181,7 @@ export default function HistoryView() {
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
               <h3 className="text-lg font-black text-gray-800">Hapus Semua Riwayat?</h3>
               <p className="text-xs text-gray-500 mt-1 mb-5">
-                Semua data skor dan riwayat permainan akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
+                Semua data skor dari semua kuis akan dihapus permanen.
               </p>
               <div className="flex space-x-2">
                 <button
@@ -141,7 +207,7 @@ export default function HistoryView() {
             <div className="w-10 h-10 border-4 border-[#46178f] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
             <p className="font-semibold text-sm">Memuat riwayat permainan...</p>
           </div>
-        ) : historyList.length === 0 ? (
+        ) : quizGroups.length === 0 ? (
           /* Empty state */
           <div className="py-16 text-center text-gray-400">
             <div className="w-16 h-16 bg-purple-50 text-purple-300 rounded-3xl flex items-center justify-center mx-auto mb-4">
@@ -149,151 +215,272 @@ export default function HistoryView() {
             </div>
             <h3 className="text-lg font-bold text-gray-700">Belum Ada Riwayat</h3>
             <p className="text-xs text-gray-500 max-w-xs mx-auto mt-1">
-              Mainkan salah satu kuis sampai selesai (layar Podium), maka hasil skor para peserta akan otomatis tersimpan di sini.
+              Mainkan salah satu kuis sampai selesai (layar Podium), maka hasil skor akan otomatis tersimpan rapi per judul kuis di sini.
             </p>
           </div>
         ) : (
-          /* History items list */
-          <div className="space-y-4">
-            {historyList.map((item) => {
-              const isExpanded = expandedId === item.id;
-              const top1 = item.podium?.[0];
-              const top2 = item.podium?.[1];
-              const top3 = item.podium?.[2];
+          /* Grouped by Quiz */
+          <div className="space-y-5">
+            {quizGroups.map((group) => {
+              const isGroupOpen = expandedQuizKey === group.key;
+              const totalSessions = group.sessions.length;
+              const latestDate = group.sessions[0]?.playedAt;
 
               return (
                 <div
-                  key={item.id}
-                  className="border-2 border-gray-100 hover:border-purple-200 rounded-2xl p-4 sm:p-5 transition-all bg-white shadow-xs"
+                  key={group.key}
+                  className={`border-2 rounded-2xl transition-all overflow-hidden ${
+                    isGroupOpen
+                      ? 'border-[#46178f] bg-purple-50/20 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
                 >
-                  {/* Top line: title, date, delete */}
-                  <div className="flex justify-between items-start gap-2 mb-3">
-                    <div>
-                      <h3 className="text-base sm:text-lg font-black text-gray-800 flex items-center gap-2">
-                        <span>{item.quizTitle}</span>
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-1">
-                        <span className="flex items-center gap-1 font-medium">
-                          <Calendar className="w-3.5 h-3.5 text-purple-600" />
-                          {formatDate(item.playedAt)}
-                        </span>
-                        <span className="flex items-center gap-1 font-medium">
-                          <Users className="w-3.5 h-3.5 text-blue-600" />
-                          {item.totalPlayers} Peserta
-                        </span>
-                        <span className="flex items-center gap-1 font-medium">
-                          <HelpCircle className="w-3.5 h-3.5 text-emerald-600" />
-                          {item.totalQuestions} Soal
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-1">
-                      {confirmDeleteId === item.id ? (
-                        <div className="flex items-center space-x-1.5 bg-red-50 p-1 rounded-xl">
-                          <span className="text-[11px] font-bold text-red-600 px-1">Hapus?</span>
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-2 py-1 rounded-lg"
-                          >
-                            Ya
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="text-gray-600 text-[11px] px-1 font-medium hover:underline"
-                          >
-                            Batal
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmDeleteId(item.id)}
-                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
-                          title="Hapus riwayat sesi ini"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Podium Badges */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 bg-purple-50/50 rounded-xl border border-purple-100 mb-3 text-xs">
-                    {/* Juara 1 */}
-                    <div className="flex items-center space-x-2 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                      <span className="text-xl">🥇</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Juara 1</div>
-                        <div className="font-extrabold text-gray-800 truncate">{top1 ? top1.name : '-'}</div>
-                      </div>
-                      <div className="font-black text-amber-600 text-xs">{top1 ? `${top1.score.toLocaleString()} pts` : '-'}</div>
-                    </div>
-
-                    {/* Juara 2 */}
-                    <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                      <span className="text-xl">🥈</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-700">Juara 2</div>
-                        <div className="font-extrabold text-gray-800 truncate">{top2 ? top2.name : '-'}</div>
-                      </div>
-                      <div className="font-black text-slate-600 text-xs">{top2 ? `${top2.score.toLocaleString()} pts` : '-'}</div>
-                    </div>
-
-                    {/* Juara 3 */}
-                    <div className="flex items-center space-x-2 bg-amber-900/10 p-2 rounded-lg border border-amber-800/20">
-                      <span className="text-xl">🥉</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Juara 3</div>
-                        <div className="font-extrabold text-gray-800 truncate">{top3 ? top3.name : '-'}</div>
-                      </div>
-                      <div className="font-black text-amber-800 text-xs">{top3 ? `${top3.score.toLocaleString()} pts` : '-'}</div>
-                    </div>
-                  </div>
-
-                  {/* Toggle Accordion for Full Leaderboard */}
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                    className="w-full flex items-center justify-between text-xs font-bold text-[#46178f] hover:bg-purple-50/80 p-2 rounded-xl transition-all cursor-pointer"
+                  {/* Quiz Header Bar (Click to Open / Close) */}
+                  <div
+                    onClick={() => setExpandedQuizKey(isGroupOpen ? null : group.key)}
+                    className="p-4 sm:p-5 flex items-center justify-between cursor-pointer select-none bg-white hover:bg-gray-50 transition-colors"
                   >
-                    <span>
-                      {isExpanded ? 'Tutup Daftar Peserta' : `Lihat Semua Peserta (${item.leaderboard?.length || 0})`}
-                    </span>
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
+                    <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                        isGroupOpen ? 'bg-[#46178f] text-white shadow-md' : 'bg-purple-100 text-[#46178f]'
+                      }`}>
+                        {isGroupOpen ? <FolderOpen className="w-6 h-6" /> : <Folder className="w-6 h-6" />}
+                      </div>
 
-                  {/* Expanded Full Leaderboard Table */}
-                  {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-gray-200 text-gray-500 uppercase text-[10px] tracking-wider">
-                            <th className="py-2 px-3 w-12 text-center">Rank</th>
-                            <th className="py-2 px-3">Nama Pemain</th>
-                            <th className="py-2 px-3 text-right">Skor Akhir</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {item.leaderboard && item.leaderboard.length > 0 ? (
-                            item.leaderboard.map((p, idx) => (
-                              <tr key={idx} className={idx < 3 ? 'bg-amber-50/40 font-semibold' : ''}>
-                                <td className="py-2 px-3 text-center font-bold text-gray-500">
-                                  {p.rank === 1 ? '🥇 1' : p.rank === 2 ? '🥈 2' : p.rank === 3 ? '🥉 3' : `#${p.rank}`}
-                                </td>
-                                <td className="py-2 px-3 font-bold text-gray-800">{p.name}</td>
-                                <td className="py-2 px-3 text-right font-black text-[#46178f]">
-                                  {p.score.toLocaleString()} pts
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="3" className="py-3 text-center text-gray-400">
-                                Tidak ada data peserta.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                      <div className="min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <h2 className="text-lg sm:text-xl font-extrabold text-gray-800 truncate">
+                            {group.quizTitle}
+                          </h2>
+                          <span className="bg-[#46178f]/10 text-[#46178f] text-[11px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                            {totalSessions}x Main
+                          </span>
+                        </div>
+
+                        <div className="flex items-center space-x-3 text-xs text-gray-500 mt-1">
+                          <span className="flex items-center space-x-1">
+                            <Clock className="w-3.5 h-3.5 text-purple-600" />
+                            <span>Terakhir: {formatDate(latestDate)}</span>
+                          </span>
+                          <span className="hidden sm:inline-block">•</span>
+                          <span className="hidden sm:flex items-center space-x-1">
+                            <HelpCircle className="w-3.5 h-3.5 text-gray-400" />
+                            <span>{group.totalQuestions} Soal</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 ml-2">
+                      <span className="text-xs font-bold text-gray-400 hidden sm:inline">
+                        {isGroupOpen ? 'Tutup Sesi' : 'Buka Riwayat'}
+                      </span>
+                      <div className={`p-1.5 rounded-xl text-gray-400 hover:text-gray-700 transition-transform ${isGroupOpen ? 'rotate-180 text-[#46178f]' : ''}`}>
+                        <ChevronDown className="w-5 h-5" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SESSIONS LIST UNDER THIS QUIZ */}
+                  {isGroupOpen && (
+                    <div className="p-4 sm:p-5 pt-2 border-t border-purple-100 bg-gray-50/50 space-y-4">
+                      {/* Sub-header info */}
+                      <div className="flex justify-between items-center text-xs text-gray-500 pb-1">
+                        <span className="font-extrabold uppercase tracking-wider text-purple-900">
+                          Daftar Sesi Permainan ({totalSessions}):
+                        </span>
+
+                        {confirmDeleteQuizGroup === group.key ? (
+                          <div className="flex items-center space-x-1.5 bg-red-100 px-2 py-1 rounded-xl">
+                            <span className="text-[11px] font-bold text-red-700">Hapus semua sesi kuis ini?</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteGroup(group.sessions);
+                              }}
+                              className="bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-lg"
+                            >
+                              Ya, Hapus
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDeleteQuizGroup(null);
+                              }}
+                              className="text-gray-600 text-[11px] font-medium hover:underline"
+                            >
+                              Batal
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteQuizGroup(group.key);
+                            }}
+                            className="text-red-500 hover:text-red-700 font-bold hover:underline cursor-pointer flex items-center space-x-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Hapus Riwayat Kuis Ini</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Individual Session Cards */}
+                      {group.sessions.map((session, idx) => {
+                        const sessionNumber = totalSessions - idx; // e.g. Sesi #2 (newest), Sesi #1 (oldest)
+                        const isTableOpen = expandedSessionId === session.id;
+                        const top1 = session.podium?.[0];
+                        const top2 = session.podium?.[1];
+                        const top3 = session.podium?.[2];
+
+                        return (
+                          <div
+                            key={session.id}
+                            className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-xs transition-all hover:shadow-md"
+                          >
+                            {/* Session header */}
+                            <div className="flex justify-between items-start gap-2 mb-3">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 font-black text-xs flex items-center justify-center">
+                                  #{sessionNumber}
+                                </div>
+                                <div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-extrabold text-sm sm:text-base text-gray-800">
+                                      Main ke-{sessionNumber}
+                                    </span>
+                                    {idx === 0 && (
+                                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                        Terbaru
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500 mt-0.5">
+                                    <span className="flex items-center gap-1 font-medium">
+                                      <Calendar className="w-3.5 h-3.5 text-purple-600" />
+                                      {formatDate(session.playedAt)}
+                                    </span>
+                                    <span className="flex items-center gap-1 font-medium">
+                                      <Users className="w-3.5 h-3.5 text-blue-600" />
+                                      {session.totalPlayers} Peserta
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Delete session button */}
+                              <div>
+                                {confirmDeleteId === session.id ? (
+                                  <div className="flex items-center space-x-1.5 bg-red-50 p-1 rounded-xl">
+                                    <span className="text-[11px] font-bold text-red-600 px-1">Hapus?</span>
+                                    <button
+                                      onClick={() => handleDeleteItem(session.id)}
+                                      className="bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-lg"
+                                    >
+                                      Ya
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDeleteId(null)}
+                                      className="text-gray-600 text-[11px] px-1 font-medium hover:underline"
+                                    >
+                                      Batal
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmDeleteId(session.id)}
+                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                                    title="Hapus sesi ini"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Podium for this session */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 bg-purple-50/40 rounded-xl border border-purple-100 mb-3 text-xs">
+                              {/* Juara 1 */}
+                              <div className="flex items-center space-x-2 bg-amber-50/80 p-2 rounded-lg border border-amber-200">
+                                <span className="text-xl">🥇</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-[9px] font-black uppercase tracking-wider text-amber-700">Juara 1</div>
+                                  <div className="font-extrabold text-gray-800 truncate">{top1 ? top1.name : '-'}</div>
+                                </div>
+                                <div className="font-black text-amber-600 text-xs">{top1 ? `${top1.score.toLocaleString()} pts` : '-'}</div>
+                              </div>
+
+                              {/* Juara 2 */}
+                              <div className="flex items-center space-x-2 bg-slate-50/80 p-2 rounded-lg border border-slate-200">
+                                <span className="text-xl">🥈</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-[9px] font-black uppercase tracking-wider text-slate-700">Juara 2</div>
+                                  <div className="font-extrabold text-gray-800 truncate">{top2 ? top2.name : '-'}</div>
+                                </div>
+                                <div className="font-black text-slate-600 text-xs">{top2 ? `${top2.score.toLocaleString()} pts` : '-'}</div>
+                              </div>
+
+                              {/* Juara 3 */}
+                              <div className="flex items-center space-x-2 bg-amber-900/10 p-2 rounded-lg border border-amber-800/20">
+                                <span className="text-xl">🥉</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-[9px] font-black uppercase tracking-wider text-amber-800">Juara 3</div>
+                                  <div className="font-extrabold text-gray-800 truncate">{top3 ? top3.name : '-'}</div>
+                                </div>
+                                <div className="font-black text-amber-800 text-xs">{top3 ? `${top3.score.toLocaleString()} pts` : '-'}</div>
+                              </div>
+                            </div>
+
+                            {/* Toggle Table for All Participants */}
+                            <button
+                              onClick={() => setExpandedSessionId(isTableOpen ? null : session.id)}
+                              className="w-full flex items-center justify-between text-xs font-bold text-[#46178f] hover:bg-purple-50/80 p-2 rounded-xl transition-all cursor-pointer"
+                            >
+                              <span>
+                                {isTableOpen ? 'Tutup Daftar Peserta' : `Lihat Semua Nilai Peserta (${session.leaderboard?.length || 0} orang)`}
+                              </span>
+                              {isTableOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+
+                            {/* Full Leaderboard Table */}
+                            {isTableOpen && (
+                              <div className="mt-3 pt-3 border-t border-gray-100 overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                  <thead>
+                                    <tr className="border-b border-gray-200 text-gray-500 uppercase text-[10px] tracking-wider">
+                                      <th className="py-2 px-3 w-12 text-center">Rank</th>
+                                      <th className="py-2 px-3">Nama Pemain</th>
+                                      <th className="py-2 px-3 text-right">Skor Akhir</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {session.leaderboard && session.leaderboard.length > 0 ? (
+                                      session.leaderboard.map((p, pIdx) => (
+                                        <tr key={pIdx} className={pIdx < 3 ? 'bg-amber-50/40 font-semibold' : ''}>
+                                          <td className="py-2 px-3 text-center font-bold text-gray-500">
+                                            {p.rank === 1 ? '🥇 1' : p.rank === 2 ? '🥈 2' : p.rank === 3 ? '🥉 3' : `#${p.rank}`}
+                                          </td>
+                                          <td className="py-2 px-3 font-bold text-gray-800">{p.name}</td>
+                                          <td className="py-2 px-3 text-right font-black text-[#46178f]">
+                                            {p.score.toLocaleString()} pts
+                                          </td>
+                                        </tr>
+                                      ))
+                                    ) : (
+                                      <tr>
+                                        <td colSpan="3" className="py-3 text-center text-gray-400">
+                                          Tidak ada data peserta.
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
